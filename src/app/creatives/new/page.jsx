@@ -5,7 +5,8 @@ import { FacebookIcon, InstagramIcon } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/conf/api';
 import AWS from 'aws-sdk';
-import { Table, Tag, Space, Typography, Progress } from 'antd';
+import { Table, Tag, Space, Typography, Progress, Button, Modal, Image, Spin } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
@@ -30,6 +31,10 @@ const UploadBaselineCreative = () => {
     const [creativeData, setCreativeData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [creativeCreated, setCreativeCreated] = useState(false);
+    const [previewModalVisible, setPreviewModalVisible] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewTitle, setPreviewTitle] = useState('');
 
     // Platform data with logos, names, and ad types
     const platformData = {
@@ -176,12 +181,12 @@ const UploadBaselineCreative = () => {
                 Key: `creatives/${fileName}`,
                 Body: file,
                 ContentType: file.type,
-                ACL: 'public-read' // Make the file publicly accessible
+                // ACL: 'public-read' // Make the file publicly accessible
             };
             
             // Upload to S3
             const result = await s3.upload(uploadParams).promise();
-            
+            console.log('result', result);
             return result.Location; // Return the S3 URL
             
         } catch (error) {
@@ -275,7 +280,6 @@ const UploadBaselineCreative = () => {
             const uuid = uuidv4();
             const newCreative = {
                 ...formData,
-                image: formData.imageUrl || "https://upload.wikimedia.org/wikipedia/commons/e/ef/Virat_Kohli_during_the_India_vs_Aus_4th_Test_match_at_Narendra_Modi_Stadium_on_09_March_2023.jpg", // Use S3 URL if available
                 add_item_id: uuid
             }
             console.log('Form submitted:', newCreative);
@@ -298,6 +302,65 @@ const UploadBaselineCreative = () => {
             console.error('Error creating/fetching creative:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Function to fetch preview image from API
+    const fetchPreviewImage = async (platform, size) => {
+        console.log('fetchPreviewImage called with:', { platform, size });
+        
+        setPreviewTitle(`${platformData[platform]?.name || platform} ${size}`);
+        setPreviewModalVisible(true);
+        
+        try {
+            setPreviewLoading(true);
+            const adTag = `${platform}/${size}`;
+            console.log('Making API call with adTag:', adTag);
+            
+            const response = await fetch('https://hackathon-creative-api.onrender.com/creative', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ adTag }),
+            });
+            
+            console.log('API response status:', response.status);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('API response data:', data);
+                
+                // Handle different response formats
+                let imageUrl = null;
+                
+                if (data.s3_url) {
+                    // Direct s3_url in response
+                    imageUrl = data.s3_url;
+                } else if (data.creative && data.creative.versions && data.creative.versions.length > 0) {
+                    // Nested creative.versions structure
+                    imageUrl = data.creative.versions[0].imageUrl;
+                } else if (data.imageUrl) {
+                    // Direct imageUrl in response
+                    imageUrl = data.imageUrl;
+                }
+                
+                if (imageUrl) {
+                    console.log('Using image URL:', imageUrl);
+                    setPreviewImage(imageUrl);
+                } else {
+                    console.error('No image URL found in response');
+                    setPreviewImage('');
+                }
+            } else {
+                console.error('Failed to fetch preview image, status:', response.status);
+                setPreviewImage('');
+            }
+        } catch (error) {
+            console.error('Error fetching preview image:', error);
+            setPreviewImage('');
+        } finally {
+            setPreviewLoading(false);
         }
     };
 
@@ -740,37 +803,21 @@ const UploadBaselineCreative = () => {
                                                 
                                                 return (
                                                     <div className="flex items-center space-x-2">
-                                                        {record.imageData ? (
-                                                            <div 
-                                                                className="relative overflow-hidden rounded border"
-                                                                style={{
-                                                                    width: previewWidth,
-                                                                    height: previewHeight
-                                                                }}
-                                                            >
-                                                                <img
-                                                                    src={record.imageData}
-                                                                    alt={`${record.platformName} ${record.ratio}`}
-                                                                    className="w-full h-full object-cover"
-                                                                    style={{
-                                                                        objectPosition: 'center'
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div 
-                                                                className={`bg-gray-300 rounded border flex items-center justify-center text-xs text-gray-500`}
-                                                                style={{
-                                                                    width: previewWidth,
-                                                                    height: previewHeight
-                                                                }}
-                                                            >
-                                                                No Image
-                                                            </div>
-                                                        )}
+                                                        
                                                         <div className="text-xs text-gray-500">
                                                             {record.ratio}
                                                         </div>
+                                                        <Button
+                                                            type="text"
+                                                            icon={<EyeOutlined />}
+                                                            onClick={(e) => {
+                                                                console.log('Preview button clicked for:', record);
+                                                                e.stopPropagation();
+                                                                fetchPreviewImage(record.platform, record.size);
+                                                            }}
+                                                            title="Preview"
+                                                            size="small"
+                                                        />
                                                     </div>
                                                 );
                                             },
@@ -849,6 +896,42 @@ const UploadBaselineCreative = () => {
                     )}
                     </form>
             </div>
+
+            {/* Preview Modal */}
+            <Modal
+                title={previewTitle}
+                open={previewModalVisible}
+                onCancel={() => setPreviewModalVisible(false)}
+                footer={null}
+                width={800}
+                centered
+            >
+                <div className="flex justify-center items-center min-h-[400px]">
+                    {previewLoading ? (
+                        <div className="text-center">
+                            <Spin size="large" />
+                            <div className="mt-4">Loading preview...</div>
+                        </div>
+                    ) : previewImage ? (
+                        <div className="text-center">
+                            <Image
+                                src={previewImage}
+                                alt="Creative Preview"
+                                style={{ maxWidth: '100%', maxHeight: '500px' }}
+                                fallback={
+                                    <div className="w-full h-64 bg-gray-200 rounded flex items-center justify-center">
+                                        <Text type="secondary">Failed to load image</Text>
+                                    </div>
+                                }
+                            />
+                        </div>
+                    ) : (
+                        <div className="text-center">
+                            <Text type="secondary">No preview available</Text>
+                        </div>
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 };

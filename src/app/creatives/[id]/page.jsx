@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { Card, Table, Tag, Space, Button, Progress, Tabs, Statistic, Row, Col, Typography, Divider } from 'antd';
+import { useState, useEffect, use } from 'react';
+import { Card, Table, Tag, Space, Button, Progress, Tabs, Statistic, Row, Col, Typography, Divider, Modal, Image, Spin } from 'antd';
 import { EyeOutlined, FilterOutlined, ExportOutlined, ArrowUpOutlined, ArrowDownOutlined, BulbOutlined, SaveOutlined, LeftOutlined } from '@ant-design/icons';
 import { FacebookIcon, InstagramIcon } from 'lucide-react';
 import api from '@/conf/api';
@@ -8,9 +8,14 @@ import api from '@/conf/api';
 const { Title, Text, Paragraph } = Typography;
 
 const CreativePerformance = ({ params }) => {
+  const resolvedParams = use(params);
   const [creativeData, setCreativeData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [previewImage, setPreviewImage] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewTitle, setPreviewTitle] = useState('');
 
   // Platform icons mapping
   const platformIcons = {
@@ -47,7 +52,7 @@ const CreativePerformance = ({ params }) => {
     const fetchCreativeData = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`/creative/${params.id}`);
+        const response = await api.get(`/creative/${resolvedParams.id}`);
         setCreativeData(response.data);
       } catch (error) {
         console.error('Error fetching creative data:', error);
@@ -57,7 +62,66 @@ const CreativePerformance = ({ params }) => {
     };
 
     fetchCreativeData();
-  }, [params.id]);
+  }, [resolvedParams.id]);
+
+  // Function to fetch preview image from API
+  const fetchPreviewImage = async (platform, size) => {
+    console.log('fetchPreviewImage called with:', { platform, size });
+    
+    setPreviewTitle(`${platformNames[platform]} ${size}`);
+    setPreviewModalVisible(true);
+    
+    try {
+      setPreviewLoading(true);
+      const adTag = `${platform}/${size}`;
+      console.log('Making API call with adTag:', adTag);
+      
+      const response = await fetch('https://hackathon-creative-api.onrender.com/creative', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ adTag }),
+      });
+      
+      console.log('API response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API response data:', data);
+        
+        // Handle different response formats
+        let imageUrl = null;
+        
+        if (data.s3_url) {
+          // Direct s3_url in response
+          imageUrl = data.s3_url;
+        } else if (data.creative && data.creative.versions && data.creative.versions.length > 0) {
+          // Nested creative.versions structure
+          imageUrl = data.creative.versions[0].imageUrl;
+        } else if (data.imageUrl) {
+          // Direct imageUrl in response
+          imageUrl = data.imageUrl;
+        }
+        
+        if (imageUrl) {
+          console.log('Using image URL:', imageUrl);
+          setPreviewImage(imageUrl);
+        } else {
+          console.error('No image URL found in response');
+          setPreviewImage('');
+        }
+      } else {
+        console.error('Failed to fetch preview image, status:', response.status);
+        setPreviewImage('');
+      }
+    } catch (error) {
+      console.error('Error fetching preview image:', error);
+      setPreviewImage('');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   // Generate table data from image_data
   const generateTableData = () => {
@@ -83,6 +147,7 @@ const CreativePerformance = ({ params }) => {
           platform: platform,
           placement: `${platformNames[platform]} ${getPlacementName(size)}`,
           size: `${ratioText} (${size})`,
+          originalSize: size,
           status: getRandomStatus(),
           preview: imageUrl,
           dcoVariations: `${Math.floor(Math.random() * 3) + 1}/3`,
@@ -189,28 +254,35 @@ const CreativePerformance = ({ params }) => {
           }
         }
         
-        if (previewImage) {
-          return (
-            <div className="w-12 h-8 bg-gray-100 rounded overflow-hidden">
-              <img 
-                src={previewImage} 
-                alt={`${record.platform} preview`}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center" style={{ display: 'none' }}>
+        return (
+          <div className="flex items-center gap-2">
+            {/* <div className="w-12 h-8 bg-gray-100 rounded overflow-hidden">
+              {previewImage ? (
+                <img 
+                  src={previewImage} 
+                  alt={`${record.platform} preview`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center" style={{ display: previewImage ? 'none' : 'flex' }}>
                 <EyeOutlined className="text-gray-500 text-xs" />
               </div>
-            </div>
-          );
-        }
-        
-        return (
-          <div className="w-12 h-8 bg-gray-200 rounded flex items-center justify-center">
-            <EyeOutlined className="text-gray-500 text-xs" />
+            </div> */}
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={(e) => {
+                console.log('Preview button clicked for:', record);
+                e.stopPropagation();
+                fetchPreviewImage(record.platform, record.originalSize);
+              }}
+              title="Preview"
+              size="small"
+            />
           </div>
         );
       },
@@ -304,6 +376,10 @@ const CreativePerformance = ({ params }) => {
     : generateTableData().filter(item => item.platform === activeTab);
 
   const performanceSummary = calculatePerformanceSummary();
+
+  // Debug: Log table data
+  console.log('Filtered data:', filteredData);
+  console.log('Columns:', columns);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -467,14 +543,41 @@ const CreativePerformance = ({ params }) => {
         </Card>
       </Card>
 
-      {/* Footer Actions */}
-      {/* <div className="flex justify-between items-center">
-        <Button icon={<LeftOutlined />}>Back</Button>
-        <Space>
-          <Button>Save Draft</Button>
-          <Button type="primary">Continue to Variants</Button>
-        </Space>
-      </div> */}
+      {/* Preview Modal */}
+      <Modal
+        title={previewTitle}
+        open={previewModalVisible}
+        onCancel={() => setPreviewModalVisible(false)}
+        footer={null}
+        width={800}
+        centered
+      >
+        <div className="flex justify-center items-center min-h-[400px]">
+          {previewLoading ? (
+            <div className="text-center">
+              <Spin size="large" />
+              <div className="mt-4">Loading preview...</div>
+            </div>
+          ) : previewImage ? (
+            <div className="text-center">
+              <Image
+                src={previewImage}
+                alt="Creative Preview"
+                style={{ maxWidth: '100%', maxHeight: '500px' }}
+                fallback={
+                  <div className="w-full h-64 bg-gray-200 rounded flex items-center justify-center">
+                    <Text type="secondary">Failed to load image</Text>
+                  </div>
+                }
+              />
+            </div>
+          ) : (
+            <div className="text-center">
+              <Text type="secondary">No preview available</Text>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
