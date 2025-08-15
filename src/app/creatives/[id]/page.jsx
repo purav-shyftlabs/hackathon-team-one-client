@@ -173,12 +173,12 @@ const CreativePerformance = ({ params }) => {
   };
 
   const getRandomStatus = () => {
-    const statuses = ['Ready', 'Pending', 'Failed'];
+    const statuses = ['Ready'];
     return statuses[Math.floor(Math.random() * statuses.length)];
   };
 
   const getRandomDCOStatus = () => {
-    const statuses = ['Active', 'Processing', 'Inactive'];
+    const statuses = ['Active', 'Processing'];
     return statuses[Math.floor(Math.random() * statuses.length)];
   };
 

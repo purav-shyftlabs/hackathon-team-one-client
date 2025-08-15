@@ -12,6 +12,7 @@ import {
   PlusCircle,
   ArrowRight
 } from 'lucide-react';
+import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
@@ -21,6 +22,7 @@ const DcoRules = () => {
       id: 1,
       title: "Summer Collection 2025",
       creativeId: "CR-001",
+      platform: "Facebook",
       condition: "CTR < 2%",
       dcoVariations: 4,
       type: "condition"
@@ -29,6 +31,7 @@ const DcoRules = () => {
       id: 2,
       title: "Holiday Special 2025",
       creativeId: "CR-002",
+      platform: "Instagram",
       condition: "Location = Toronto",
       dcoVariations: 6,
       type: "condition"
@@ -37,6 +40,7 @@ const DcoRules = () => {
       id: 3,
       title: "Fallback Creative",
       creativeId: "CR-004",
+      platform: "Google",
       outputAction: "Generate New with Offers",
       dcoVariations: 12,
       type: "output"
@@ -45,6 +49,7 @@ const DcoRules = () => {
       id: 4,
       title: "Product Showcase",
       creativeId: "CR-003",
+      platform: "Facebook",
       outputAction: "Show High Value Products",
       dcoVariations: 8,
       type: "output"
@@ -52,10 +57,14 @@ const DcoRules = () => {
   ]);
 
   const handleAddCreativeBlock = () => {
+    const platforms = ["Facebook", "Instagram", "Google", "Pinterest", "TikTok", "LinkedIn", "Twitter", "Snapchat"];
+    const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)];
+    
     const newBlock = {
       id: creativeBlocks.length + 1,
       title: `New Creative ${creativeBlocks.length + 1}`,
       creativeId: `CR-${String(creativeBlocks.length + 1).padStart(3, '0')}`,
+      platform: randomPlatform,
       condition: "Select condition...",
       dcoVariations: Math.floor(Math.random() * 10) + 1,
       type: "condition"
@@ -74,13 +83,15 @@ const DcoRules = () => {
             <Title level={2} className="mb-1">DCO Rules</Title>
             <Text type="secondary">Manage dynamic creative optimization rules</Text>
           </div>
+          <Link href="/dco-rules/create">
           <Button 
             type="primary" 
             icon={<Plus className="w-4 h-4" />}
-            className="bg-black border-black hover:bg-gray-800"
-          >
-            + Create New Rule
+            className="bg-black! border-black hover:bg-gray-800"
+            >
+            Create New Rule
           </Button>
+              </Link>
         </div>
       </div>
 
@@ -93,7 +104,7 @@ const DcoRules = () => {
                 <Button 
                   type="primary" 
                   icon={<Save className="w-4 h-4" />}
-                  className="bg-black border-black hover:bg-gray-800"
+                  className="bg-black! border-black hover:bg-gray-800"
                 >
                   Save Flow
                 </Button>
@@ -115,7 +126,7 @@ const DcoRules = () => {
                 type="primary" 
                 icon={<PlayCircle className="w-5 h-5" />}
                 size="large"
-                className="bg-black border-black hover:bg-gray-800"
+                className="bg-black! border-black hover:bg-gray-800"
               >
                 Start
               </Button>
@@ -139,7 +150,11 @@ const DcoRules = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <Title level={5} className="mb-1 truncate">{block.title}</Title>
-                      <Text type="secondary" className="text-xs">Creative ID: {block.creativeId}</Text>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Text type="secondary" className="text-xs">Creative ID: {block.creativeId}</Text>
+                        <span className="text-xs text-gray-400">•</span>
+                        <Text type="secondary" className="text-xs">{block.platform}</Text>
+                      </div>
                       
                       {block.type === "condition" ? (
                         <Dropdown menu={{ items: [

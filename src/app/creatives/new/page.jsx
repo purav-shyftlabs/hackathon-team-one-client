@@ -7,6 +7,7 @@ import api from '@/conf/api';
 import AWS from 'aws-sdk';
 import { Table, Tag, Space, Typography, Progress, Button, Modal, Image, Spin } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
@@ -701,9 +702,11 @@ const UploadBaselineCreative = () => {
                                         <button className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
                                             Filter
                                         </button>
-                                        <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                                            Export
-                                        </button>
+                                        <Link href="/">
+                                            <button className="px-4 py-2 bg-black text-white rounded-md hover:bg-black/80 hover:text-white!">
+                                                Save
+                                            </button>
+                                        </Link>
                                     </Space>
                                 </div>
                             </div>

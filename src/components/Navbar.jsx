@@ -14,8 +14,12 @@ const Navbar = () => {
   const navBarItems = [
     {
       name: 'Creatives',
-      path: '/creatives/new',
+      path: '/',
     },
+    {
+      name: 'DCO Rules',
+      path: '/dco-rules',
+    }
   ];
   // Get current active dashboard info
 
